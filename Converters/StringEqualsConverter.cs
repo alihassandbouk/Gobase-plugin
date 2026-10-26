@@ -2,7 +2,7 @@ using System;
 using System.Globalization;
 using System.Windows.Data;
 
-namespace Rasid.Converters
+namespace GoBase.Converters
 {
 	//used for the navigation buttons,compares 2 string , case-senstive
 	//If a toggle button becomes checked, the converter returns its parameter:

@@ -1,10 +1,10 @@
-<UserControl x:Class="Rasid.Pages.Login.LoginView"
+<UserControl x:Class="GoBase.Pages.Login.LoginView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <UserControl.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="/RASID;component/Resources/SharedResources.xaml"/>
+                <ResourceDictionary Source="/GoBase;component/Resources/SharedResources.xaml"/>
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </UserControl.Resources>
@@ -17,14 +17,14 @@
 
         <Border Grid.Column="0" Background="#173C40">
             <StackPanel VerticalAlignment="Center" Margin="30">
-                <Image Source="/RASID;component/Images/icon_nobg.png" Height="90" Stretch="Uniform"/>
-                <TextBlock Text="Welcome Back"
+                <Image Source="/GoBase;component/Images/icon_nobg.png" Height="90" Stretch="Uniform"/>
+                <TextBlock Text="GoBase"
                            FontSize="25"
                            FontWeight="SemiBold"
                            Foreground="White"
                            HorizontalAlignment="Center"
                            Margin="0,18,0,0"/>
-                <TextBlock Text="Access your geospatial solutions and manage RASID projects directly inside ArcGIS Pro."
+                <TextBlock Text="Browse the geospatial catalog and load its layers directly inside ArcGIS Pro."
                            Foreground="#DCEBEC"
                            TextWrapping="Wrap"
                            TextAlignment="Center"
@@ -33,10 +33,16 @@
         </Border>
 
         <StackPanel Grid.Column="1" Margin="48,36" VerticalAlignment="Center" MaxWidth="420">
-            <TextBlock Text="Connect to RASID" Style="{StaticResource RasidPageTitleStyle}"/>
-            <TextBlock Text="Enter your API key to continue."
+            <TextBlock Text="Connect to GoBase" Style="{StaticResource RasidPageTitleStyle}"/>
+            <TextBlock Text="Enter the server address and your API key."
                        Margin="0,4,0,20"
                        Foreground="{StaticResource RasidMutedTextBrush}"/>
+
+            <TextBlock Text="Server" Style="{StaticResource RasidSectionTitleStyle}"/>
+            <TextBox Text="{Binding ServerUrl, UpdateSourceTrigger=PropertyChanged}"
+                     Style="{StaticResource RasidTextBoxStyle}"
+                     ToolTip="For example https://portal.example"
+                     Margin="0,5,0,12"/>
 
             <TextBlock Text="API Key" Style="{StaticResource RasidSectionTitleStyle}"/>
             <Grid Margin="0,5,0,0">
@@ -65,10 +71,6 @@
                     Command="{Binding ConnectCommand}"
                     Margin="0,16,0,0"
                     Style="{StaticResource RasidPrimaryButtonStyle}"/>
-            <Button Content="Get API Key"
-                    Command="{Binding GetApiKeyCommand}"
-                    Margin="0,8,0,0"
-                    Style="{StaticResource RasidSecondaryButtonStyle}"/>
 
             <TextBlock Text="{Binding ErrorText}"
                        Foreground="{StaticResource RasidDangerBrush}"
@@ -76,12 +78,11 @@
                        TextWrapping="Wrap"
                        Visibility="{Binding ErrorText, Converter={StaticResource StringToVisibilityConverter}}"/>
 
-            <TextBlock Margin="0,18,0,0" HorizontalAlignment="Center" Foreground="{StaticResource RasidMutedTextBrush}">
-                <Run Text="Don't have an account? "/>
-                <Hyperlink Command="{Binding SignUpCommand}" Foreground="{StaticResource RasidPrimaryBrush}">
-                    <Run Text="Sign up"/>
-                </Hyperlink>
-            </TextBlock>
+            <TextBlock Text="No API key yet? Ask a GoBase admin to create one for you."
+                       Margin="0,18,0,0"
+                       HorizontalAlignment="Center"
+                       TextWrapping="Wrap"
+                       Foreground="{StaticResource RasidMutedTextBrush}"/>
         </StackPanel>
     </Grid>
 </UserControl>

@@ -3,7 +3,7 @@ using System.ComponentModel;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.ComTypes;
 
-namespace Rasid.Services
+namespace GoBase.Services
 {
     /// Minimal wrapper around the Windows Credential Manager API.
     /// Keeps API keys out of plain-text configuration files and avoids a
@@ -38,7 +38,7 @@ namespace Rasid.Services
 
                 if (!CredWrite(ref credential, 0))
                     throw new Win32Exception(Marshal.GetLastWin32Error(),
-                        "Could not save the RASID API key in Windows Credential Manager.");
+                        "Could not save the GoBase API key in Windows Credential Manager.");
             }
             finally
             {
@@ -46,8 +46,12 @@ namespace Rasid.Services
             }
         }
 
-        public static bool TryRead(string target, out string secret)
+        public static bool TryRead(string target, out string secret) =>
+            TryRead(target, out _, out secret);
+
+        public static bool TryRead(string target, out string userName, out string secret)
         {
+            userName = null;
             secret = null;
             if (!CredRead(target, CredTypeGeneric, 0, out var credentialPointer))
             {
@@ -56,7 +60,7 @@ namespace Rasid.Services
                     return false;
 
                 throw new Win32Exception(error,
-                    "Could not read the RASID API key from Windows Credential Manager.");
+                    "Could not read the GoBase API key from Windows Credential Manager.");
             }
 
             try
@@ -64,6 +68,8 @@ namespace Rasid.Services
                 var credential = Marshal.PtrToStructure<NativeCredential>(credentialPointer);
                 if (credential.CredentialBlob == IntPtr.Zero || credential.CredentialBlobSize == 0)
                     return false;
+
+                userName = credential.UserName;
 
                 secret = Marshal.PtrToStringUni(
                     credential.CredentialBlob,
@@ -84,7 +90,7 @@ namespace Rasid.Services
             var error = Marshal.GetLastWin32Error();
             if (error != ErrorNotFound)
                 throw new Win32Exception(error,
-                    "Could not remove the RASID API key from Windows Credential Manager.");
+                    "Could not remove the GoBase API key from Windows Credential Manager.");
         }
 
         [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]

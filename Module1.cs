@@ -1,7 +1,7 @@
 using ArcGIS.Desktop.Framework;
 using ArcGIS.Desktop.Framework.Contracts;
 
-namespace Rasid
+namespace GoBase
 {
 	internal class Module1 : Module
 	{
@@ -10,7 +10,7 @@ namespace Rasid
 		/// <summary>
 		/// Retrieve the singleton instance to this module here
 		/// </summary>
-		public static Module1 Current => _this ??= (Module1)FrameworkApplication.FindModule("Rasid_Module");
+		public static Module1 Current => _this ??= (Module1)FrameworkApplication.FindModule("GoBase_Module");
 
 		#region Overrides
 		/// <summary>

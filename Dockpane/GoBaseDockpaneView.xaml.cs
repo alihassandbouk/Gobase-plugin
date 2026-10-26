@@ -1,11 +1,11 @@
 using System.Windows.Controls;
 
-namespace Rasid.Dockpane
+namespace GoBase.Dockpane
 {
 	//initializes the visual component
-	public partial class RasidDockpaneView : UserControl
+	public partial class GoBaseDockpaneView : UserControl
 	{
-		public RasidDockpaneView()
+		public GoBaseDockpaneView()
 		{
 			InitializeComponent();
 		}

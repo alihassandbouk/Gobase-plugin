@@ -1,14 +1,21 @@
 using ArcGIS.Desktop.Framework;
-using Rasid.Pages.Base;
-using Rasid.Services;
+using GoBase.Pages.Base;
+using GoBase.Services;
 using System;
-using System.Diagnostics;
+using System.Net.Http;
 using System.Windows.Input;
 
-namespace Rasid.Pages.Login
+namespace GoBase.Pages.Login
 {
     internal class LoginViewModel : PageViewModelBase
     {
+        private string _serverUrl;
+        public string ServerUrl
+        {
+            get => _serverUrl;
+            set => SetProperty(ref _serverUrl, value);
+        }
+
         private string _apiKey;
         public string ApiKey
         {
@@ -38,22 +45,18 @@ namespace Rasid.Pages.Login
         }
 
         public ICommand ToggleVisibilityCommand { get; }
-        public ICommand GetApiKeyCommand { get; }
-        public ICommand SignUpCommand { get; }
         public ICommand ConnectCommand { get; }
 
         public event Action LoggedIn;
 
-        public LoginViewModel()
+        // errorText lets the panel explain why it came back here, e.g. the server was unreachable at start-up.
+        public LoginViewModel(string errorText = null)
         {
+            ServerUrl = AuthService.Instance.ServerUrl;
+            ErrorText = errorText;
             ToggleVisibilityCommand = new RelayCommand(() => IsKeyVisible = !IsKeyVisible);
-            GetApiKeyCommand = new RelayCommand(() => OpenUrl(ApiClient.Instance.AppBaseUrl + "/api-keys"));
-            SignUpCommand = new RelayCommand(() => OpenUrl(ApiClient.Instance.AppBaseUrl + "/auth?active_form=register"));
             ConnectCommand = new RelayCommand(async () => await ConnectAsync());
         }
-
-        private static void OpenUrl(string url) =>
-            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
 
         private async System.Threading.Tasks.Task ConnectAsync()
         {
@@ -61,6 +64,11 @@ namespace Rasid.Pages.Login
                 return;
 
             ErrorText = null;
+            if (string.IsNullOrWhiteSpace(ServerUrl))
+            {
+                ErrorText = "Enter the GoBase server address first.";
+                return;
+            }
             if (string.IsNullOrWhiteSpace(ApiKey))
             {
                 ErrorText = "Enter your API key first.";
@@ -70,22 +78,25 @@ namespace Rasid.Pages.Login
             IsConnecting = true;
             try
             {
-                AuthService.Instance.SetApiKey(ApiKey.Trim());
-                var isAuthenticated = await AuthService.Instance.IsAuthenticatedAsync();
-                if (!isAuthenticated)
-                {
-                    ErrorText = "Invalid API key. Please check it and try again.";
-                    AuthService.Instance.ClearApiKey();
-                    return;
-                }
-
-                AuthService.Instance.SaveApiKey(ApiKey.Trim());
+                AuthService.Instance.Use(ServerUrl, ApiKey);
+                await AuthService.Instance.GetIdentityAsync();
+                AuthService.Instance.Save();
                 LoggedIn?.Invoke();
+            }
+            catch (ApiException ex) when (ex.IsAuthFailure)
+            {
+                AuthService.Instance.Use(ServerUrl, null);
+                ErrorText = "The server did not accept this API key.";
+            }
+            catch (HttpRequestException ex)
+            {
+                AuthService.Instance.Use(ServerUrl, null);
+                ErrorText = $"Could not reach {AuthService.Instance.ServerUrl}: {ex.Message}";
             }
             catch (Exception ex)
             {
-                AuthService.Instance.ClearApiKey();
-                ErrorText = $"Could not connect to RASID: {ex.Message}";
+                AuthService.Instance.Use(ServerUrl, null);
+                ErrorText = $"Could not connect to GoBase: {ex.Message}";
             }
             finally
             {

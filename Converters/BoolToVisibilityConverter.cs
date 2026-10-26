@@ -3,7 +3,7 @@ using System.Globalization;
 using System.Windows;
 using System.Windows.Data;
 
-namespace Rasid.Converters
+namespace GoBase.Converters
 {
 	//this converts a boolean into a Visibility value
 	//true	Visibility.Visible

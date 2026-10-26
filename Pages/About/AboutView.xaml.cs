@@ -1,6 +1,6 @@
 using System.Windows.Controls;
 
-namespace Rasid.Pages.About
+namespace GoBase.Pages.About
 {
     public partial class AboutView : UserControl
     {

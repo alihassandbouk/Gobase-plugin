@@ -3,7 +3,7 @@ using System.Globalization;
 using System.Windows;
 using System.Windows.Data;
 
-namespace Rasid.Converters
+namespace GoBase.Converters
 {
 	//This shows an element when a string contains something and collapses it when the string is empty
 	public class StringToVisibilityConverter : IValueConverter

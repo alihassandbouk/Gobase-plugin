@@ -1,0 +1,7 @@
+<Project>
+  <!-- Esri's package step (Esri.ArcGISPro.Extensions30.targets) compiles its tasks with CodeTaskFactory,
+       which only the full MSBuild in Visual Studio has. Under `dotnet build` (on Linux, or the .NET CLI
+       on Windows) it fails with MSB4801. There, and only there, a plain replacement takes over.
+       This file is imported after NuGet package targets, so its targets win. -->
+  <Import Project="Build\DotnetCliPackaging.targets" Condition="'$(MSBuildRuntimeType)' == 'Core'" />
+</Project>

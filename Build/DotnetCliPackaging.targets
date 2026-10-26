@@ -1,0 +1,33 @@
+<Project>
+  <!-- Used only under `dotnet build`; see Directory.Build.targets.
+       Builds the same .esriAddinX Esri's step builds: a zip holding Config.daml and the Content items at
+       the root, and the build output under Install\. It does not run RegisterAddIn.exe:
+       install the file by double-clicking it on the Windows machine. -->
+
+  <!-- Esri's targets, replaced by no-ops so their CodeTaskFactory tasks never run. -->
+  <Target Name="ArcGISInstallOutput" />
+  <Target Name="PackageArcGISContents" />
+  <Target Name="CleanArcGISContents" />
+
+  <Target Name="GoBasePackageAddIn" AfterTargets="Build">
+    <PropertyGroup>
+      <_AddInStaging>$(IntermediateOutputPath)addin_package\</_AddInStaging>
+      <_AddInFile>$(OutDir)$(AssemblyName).esriAddinX</_AddInFile>
+    </PropertyGroup>
+    <ItemGroup>
+      <_AddInOutput Include="$(OutDir)**\*" Exclude="$(OutDir)**\*.esriAddinX" />
+    </ItemGroup>
+
+    <RemoveDir Directories="$(_AddInStaging)" />
+    <Copy SourceFiles="@(Content)" DestinationFolder="$(_AddInStaging)%(RelativeDir)" />
+    <Copy SourceFiles="@(_AddInOutput)" DestinationFolder="$(_AddInStaging)Install\%(RecursiveDir)" />
+    <ZipDirectory SourceDirectory="$(_AddInStaging)" DestinationFile="$(_AddInFile)" Overwrite="true" />
+    <RemoveDir Directories="$(_AddInStaging)" />
+
+    <Message Text="Add-in package: $([System.IO.Path]::GetFullPath('$(_AddInFile)'))" Importance="High" />
+  </Target>
+
+  <Target Name="GoBaseCleanAddIn" AfterTargets="Clean">
+    <Delete Files="$(OutDir)$(AssemblyName).esriAddinX" />
+  </Target>
+</Project>

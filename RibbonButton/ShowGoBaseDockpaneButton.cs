@@ -1,20 +1,20 @@
 ﻿using ArcGIS.Desktop.Framework.Contracts;
 
-namespace Rasid.RibbonButton
+namespace GoBase.RibbonButton
 {
-	internal class ShowRasidDockpaneButton : Button
+	internal class ShowGoBaseDockpaneButton : Button
 	{
 		protected override void OnClick()
 		{
 			try
 			{
-				System.Diagnostics.Debug.WriteLine("RASID Button clicked!");
-				Dockpane.RasidDockpaneViewModel.Show();
+				System.Diagnostics.Debug.WriteLine("GoBase button clicked");
+				Dockpane.GoBaseDockpaneViewModel.Show();
 			}
 			catch (System.Exception ex)
 			{
 				System.Diagnostics.Debug.WriteLine($"Error showing dockpane: {ex.Message}\nStack: {ex.StackTrace}");
-				ArcGIS.Desktop.Framework.Dialogs.MessageBox.Show($"Error opening RASID panel:\n{ex.Message}", "Error");
+				ArcGIS.Desktop.Framework.Dialogs.MessageBox.Show($"Error opening the GoBase panel:\n{ex.Message}", "Error");
 			}
 		}
 

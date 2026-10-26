@@ -1,24 +1,21 @@
 using ArcGIS.Desktop.Framework;
 using ArcGIS.Desktop.Framework.Contracts;
-using Rasid.Pages.About;
-using Rasid.Pages.Base;
-using Rasid.Pages.GoPilot;
-using Rasid.Pages.Login;
-using Rasid.Pages.Processes;
-using Rasid.Pages.Projects;
-using Rasid.Pages.Shared;
-using Rasid.Pages.Solutions;
-using Rasid.Services;
+using GoBase.Pages.About;
+using GoBase.Pages.Base;
+using GoBase.Pages.Catalog;
+using GoBase.Pages.Login;
+using GoBase.Services;
 using System;
 using System.Threading.Tasks;
 using System.Windows.Input;
 
-namespace Rasid.Dockpane
+namespace GoBase.Dockpane
 {
-    internal class RasidDockpaneViewModel : DockPane
+    // The panel itself. It decides which page is showing: Login, Catalog or About.
+    internal class GoBaseDockpaneViewModel : DockPane
     {
-        //id declared in config.daml 
-        private const string DockPaneId = "Rasid_DockpaneID";
+        //id declared in config.daml
+        private const string DockPaneId = "GoBase_DockpaneID";
 
         public static void Show()
         {
@@ -59,35 +56,29 @@ namespace Rasid.Dockpane
             set => SetProperty(ref _isNavigationVisible, value);
         }
 
-        private string _welcomeText = "Welcome to RASID";
+        private string _welcomeText = "GoBase";
         public string WelcomeText
         {
             get => _welcomeText;
             set => SetProperty(ref _welcomeText, value);
         }
 
-        // ArcGIS Pro expects this property on DockPane. The writable shadow avoids a
-        // TwoWay binding error in versions that attempt to set it.
+        // Older ArcGIS Pro versions bind this property TwoWay on every DockPane. Pro 3.7's DockPane no
+        // longer declares it; keeping a writable one here avoids a binding error if a version sets it.
         private int _selectedTabIndex;
-        public new int SelectedTabIndex
+        public int SelectedTabIndex
         {
             get => _selectedTabIndex;
             set => SetProperty(ref _selectedTabIndex, value);
         }
 
-        public ICommand ShowGoPilotCommand { get; }
-        public ICommand ShowSolutionsCommand { get; }
-        public ICommand ShowProjectsCommand { get; }
-        public ICommand ShowFeedbackCommand { get; }
+        public ICommand ShowCatalogCommand { get; }
         public ICommand ShowAboutCommand { get; }
         public ICommand LogOutCommand { get; }
 
-        public RasidDockpaneViewModel()
+        public GoBaseDockpaneViewModel()
         {
-            ShowGoPilotCommand = new RelayCommand(ShowGoPilot);
-            ShowSolutionsCommand = new RelayCommand(ShowSolutions);
-            ShowProjectsCommand = new RelayCommand(ShowProjects);
-            ShowFeedbackCommand = new RelayCommand(ShowFeedback);
+            ShowCatalogCommand = new RelayCommand(ShowCatalog);
             ShowAboutCommand = new RelayCommand(() => Navigate("About", new AboutViewModel()));
             LogOutCommand = new RelayCommand(LogOut);
 
@@ -98,25 +89,25 @@ namespace Rasid.Dockpane
         {
             try
             {
-                if (!AuthService.Instance.LoadApiKey())
+                if (!AuthService.Instance.Load())
                 {
-                    ShowLogin();
-                    return;
-                }
-
-                if (!await AuthService.Instance.IsAuthenticatedAsync())
-                {
-                    AuthService.Instance.ClearCredentials();
                     ShowLogin();
                     return;
                 }
 
                 await CompleteLoginAsync();
             }
+            catch (ApiException ex) when (ex.IsAuthFailure)
+            {
+                // The saved key was revoked or has expired: forget it.
+                AuthService.Instance.Clear();
+                ShowLogin("Your saved API key is no longer accepted. Enter a new one.");
+            }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"RASID initialization failed: {ex}");
-                ShowLogin();
+                // The server could not be reached. Keep the saved key; it may work again later.
+                System.Diagnostics.Debug.WriteLine($"GoBase initialization failed: {ex}");
+                ShowLogin($"Could not reach {AuthService.Instance.ServerUrl}: {ex.Message}");
             }
         }
 
@@ -127,68 +118,43 @@ namespace Rasid.Dockpane
             CurrentPage = page;
         }
 
-        private void ShowGoPilot() => Navigate("GoPilot", new GoPilotViewModel());
+        private void ShowCatalog() => Navigate("Catalog", new CatalogViewModel());
 
-        private void ShowSolutions()
-        {
-            var vm = new SolutionsViewModel();
-            vm.ProjectCreated += project => Navigate("Projects", new ProcessesViewModel(project));
-            Navigate("Solutions", vm);
-        }
-
-        private void ShowProjects()
-        {
-            var vm = new ProjectsViewModel();
-            vm.ProjectOpened += project => Navigate("Projects", new ProcessesViewModel(project));
-            Navigate("Projects", vm);
-        }
-
-        private void ShowFeedback()
-        {
-            var vm = new FeedbackDialogViewModel(CurrentSection);
-            var dialog = new FeedbackDialogView
-            {
-                DataContext = vm,
-                Owner = FrameworkApplication.Current.MainWindow
-            };
-            vm.Submitted += () => dialog.DialogResult = true;
-            dialog.ShowDialog();
-        }
-
-        private void ShowLogin()
+        private void ShowLogin(string errorText = null)
         {
             IsNavigationVisible = false;
             CurrentSection = "Login";
-            WelcomeText = "Welcome to RASID";
+            WelcomeText = "GoBase";
 
-            var loginVm = new LoginViewModel();
-            loginVm.LoggedIn += async () => await CompleteLoginAsync();
+            var loginVm = new LoginViewModel(errorText);
+            loginVm.LoggedIn += async () =>
+            {
+                try
+                {
+                    await CompleteLoginAsync();
+                }
+                catch (Exception ex)
+                {
+                    ShowLogin($"Could not finish signing in: {ex.Message}");
+                }
+            };
             CurrentPage = loginVm;
         }
 
+        // Throws when the key is refused or the server cannot be reached; callers decide what that means.
         private async Task CompleteLoginAsync()
         {
-            try
-            {
-                var profile = await AuthService.Instance.GetProfileAsync();
+            var identity = await AuthService.Instance.GetIdentityAsync();
+            WelcomeText = identity == null
+                ? "GoBase"
+                : $"Signed in as {identity.Username}";
 
-                
-                WelcomeText = profile == null
-                    ? "Welcome to RASID"
-                    : $"Welcome, {profile.Name}\nCredits: {profile.Credits:0.##}";
-            }
-            catch (Exception ex)
-            {
-               
-                WelcomeText = "Welcome to RASID";
-            }
-
-            ShowGoPilot();
+            ShowCatalog();
         }
 
         private void LogOut()
         {
-            AuthService.Instance.ClearCredentials();
+            AuthService.Instance.Clear();
             ShowLogin();
         }
     }

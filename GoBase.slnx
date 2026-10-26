@@ -1,6 +1,3 @@
 <Solution>
-  <Folder Name="/Compatibility/">
-    <Project Path="Compatibility/Pro33/RASID.Pro33.csproj" />
-  </Folder>
-  <Project Path="RASID.csproj" />
+  <Project Path="GoBase.csproj" />
 </Solution>

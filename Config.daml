@@ -1,52 +1,42 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ArcGIS defaultAssembly="RASID.dll" defaultNamespace="Rasid" xmlns="http://schemas.esri.com/DADF/Registry" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://schemas.esri.com/DADF/Registry file:///C:/Program%20Files/ArcGIS/Pro/bin/ArcGIS.Desktop.Framework.xsd">
-  <AddInInfo id="{C9AF1554-F1F5-4201-9AEF-0F61312DFCC0}" version="1.0" desktopVersion="3.7.0">
-	<Name>RASID</Name>
-	<Description>RASID ArcGIS Pro Add-in</Description>
+<ArcGIS defaultAssembly="GoBase.dll" defaultNamespace="GoBase" xmlns="http://schemas.esri.com/DADF/Registry" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://schemas.esri.com/DADF/Registry file:///C:/Program%20Files/ArcGIS/Pro/bin/ArcGIS.Desktop.Framework.xsd">
+  <!-- The id must differ from the RASID add-in's, or Pro treats the two as one add-in and loads only the newer. -->
+  <AddInInfo id="{766A0759-A7BD-4273-B71C-EA32D84CD761}" version="0.1" desktopVersion="3.7.0">
+	<Name>GoBase</Name>
+	<Description>Browse the GoBase catalog and load its layers into ArcGIS Pro</Description>
 	<Image>Images\AddInDesktop32.png</Image>
 	<Author>RASID Team</Author>
 	<Company>RASID</Company>
-	<Date>1/1/2024</Date>
+	<Date>10/26/2026</Date>
 	<Subject>Framework</Subject>
   </AddInInfo>
   <modules>
-	<insertModule id="Rasid_Module" className="Module1" autoLoad="true" caption="RASID">
+	<insertModule id="GoBase_Module" className="Module1" autoLoad="true" caption="GoBase">
 	  <tabs>
-		<tab id="Rasid_Tab" caption="RASID">
-		  <group refID="Rasid_Group"/>
+		<tab id="GoBase_Tab" caption="GoBase">
+		  <group refID="GoBase_Group"/>
 		</tab>
 	  </tabs>
 	  <groups>
-		<group id="Rasid_Group" caption="RASID" appearsOnAddInTab="true">
-		  <button refID="Rasid_ShowDockpane_Button" size="large"/>
+		<group id="GoBase_Group" caption="GoBase" appearsOnAddInTab="true">
+		  <button refID="GoBase_ShowDockpane_Button" size="large"/>
 		</group>
 	  </groups>
 	  <controls>
-		<button id="Rasid_ShowDockpane_Button" caption="RASID"
-				className="Rasid.RibbonButton.ShowRasidDockpaneButton"
+		<button id="GoBase_ShowDockpane_Button" caption="GoBase"
+				className="GoBase.RibbonButton.ShowGoBaseDockpaneButton"
 				loadOnClick="true"
 				smallImage="Images\logo.png"
 				largeImage="Images\logo.png">
-		  <tooltip heading="RASID">
-			Open the RASID panel<disabledText/>
+		  <tooltip heading="GoBase">
+			Open the GoBase panel<disabledText/>
 		  </tooltip>
 		</button>
-		<tool id="Rasid_AoiSketchTool"
-			  caption="Draw RASID Area"
-			  className="Rasid.Services.Geometry.AoiSketchTool"
-			  loadOnClick="true"
-			  smallImage="Images\logo.png"
-			  largeImage="Images\logo.png"
-			  condition="esri_mapping_mapPane">
-		  <tooltip heading="Draw Area">
-			Draw a polygon on the active map for RASID.<disabledText/>
-		  </tooltip>
-		</tool>
 	  </controls>
 	  <dockPanes>
-		<dockPane id="Rasid_DockpaneID" caption="RASID" className="Rasid.Dockpane.RasidDockpaneViewModel"
+		<dockPane id="GoBase_DockpaneID" caption="GoBase" className="GoBase.Dockpane.GoBaseDockpaneViewModel"
 			  dock="group" dockWith="esri_core_projectDockPane">
-		  <content className="Rasid.Dockpane.RasidDockpaneView"/>
+		  <content className="GoBase.Dockpane.GoBaseDockpaneView"/>
 		</dockPane>
 	  </dockPanes>
 	</insertModule>

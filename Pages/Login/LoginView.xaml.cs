@@ -1,7 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 
-namespace Rasid.Pages.Login
+namespace GoBase.Pages.Login
 {
     public partial class LoginView : UserControl
     {

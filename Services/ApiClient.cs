@@ -1,70 +1,108 @@
 ﻿using System;
+using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
-using System.Net.Http.Json;
+using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 
-namespace Rasid.Services
+namespace GoBase.Services
 {
+	// The one HttpClient for the GoBase-Web API. Holds the server address and the API key.
 	internal class ApiClient
 	{
 		public static ApiClient Instance { get; } = new ApiClient();
 
-		private readonly HttpClient _http = new HttpClient();
-		public string BaseUrl { get; } = "https://api.rasid.ai/api/";       
-		public string AppBaseUrl { get; } = "https://app.rasid.ai";         
-		public string ApiHost { get; } = "https://api.rasid.ai";            
-		public string GoPilotBaseUrl { get; } = "https://api.rasid.ai/api/llm/"; 
-		public TimeSpan Timeout { get; } = TimeSpan.FromSeconds(15);      
+		private readonly HttpClient _http;
 
-		public void SetAuthHeader(string apiKey)
+		// Server root without a trailing slash, e.g. "https://portal.example". Paths start with "/api/".
+		public string ServerUrl { get; private set; }
+		public TimeSpan Timeout { get; } = TimeSpan.FromSeconds(30);
+
+		private ApiClient()
 		{
+			// GoBase-Web compresses feature pages when the client accepts gzip.
+			var handler = new HttpClientHandler
+			{
+				AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate
+			};
+			_http = new HttpClient(handler) { Timeout = System.Threading.Timeout.InfiniteTimeSpan };
+
+			// Without this, Django REST Framework may answer with its HTML page instead of JSON.
+			_http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+		}
+
+		public void Configure(string serverUrl, string apiKey)
+		{
+			ServerUrl = NormalizeServerUrl(serverUrl);
+
+			// "Api-Key", not "Bearer": the backend reads Bearer values as JWTs and rejects anything else.
 			_http.DefaultRequestHeaders.Authorization = string.IsNullOrEmpty(apiKey)
 				? null
-				: new AuthenticationHeaderValue("Bearer", apiKey);
+				: new AuthenticationHeaderValue("Api-Key", apiKey);
 		}
 
-		public async Task<T> GetAsync<T>(string path, TimeSpan? timeout = null)
+		// Accepts "portal.example", "https://portal.example/" or ".../api" and returns the bare root.
+		public static string NormalizeServerUrl(string serverUrl)
 		{
-			using var cts = new System.Threading.CancellationTokenSource(timeout ?? Timeout);
-			var response = await _http.GetAsync(BaseUrl + path, cts.Token);
-			response.EnsureSuccessStatusCode();
+			if (string.IsNullOrWhiteSpace(serverUrl))
+				return null;
 
-			
-			var rawJson = await response.Content.ReadAsStringAsync();
-			
-			return System.Text.Json.JsonSerializer.Deserialize<T>(rawJson);
+			var url = serverUrl.Trim().TrimEnd('/');
+			if (!url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
+				!url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+				url = "https://" + url;
+			if (url.EndsWith("/api", StringComparison.OrdinalIgnoreCase))
+				url = url[..^4];
+			return url;
 		}
 
-		public async Task<T> PostJsonAsync<T>(string path, object payload, TimeSpan? timeout = null)
+		public async Task<T> GetAsync<T>(string pathAndQuery, TimeSpan? timeout = null)
 		{
-			using var cts = new System.Threading.CancellationTokenSource(timeout ?? Timeout);
-			var response = await _http.PostAsJsonAsync(BaseUrl + path, payload, cts.Token);
-			await EnsureSuccessOrThrowAsync(response);
-			return await response.Content.ReadFromJsonAsync<T>();
+			if (string.IsNullOrEmpty(ServerUrl))
+				throw new InvalidOperationException("No GoBase server is configured.");
+
+			using var cts = new CancellationTokenSource(timeout ?? Timeout);
+			using var response = await _http.GetAsync(ServerUrl + pathAndQuery, cts.Token).ConfigureAwait(false);
+			await EnsureSuccessOrThrowAsync(response).ConfigureAwait(false);
+
+			await using var stream = await response.Content.ReadAsStreamAsync(cts.Token).ConfigureAwait(false);
+			return await JsonSerializer.DeserializeAsync<T>(stream, cancellationToken: cts.Token).ConfigureAwait(false);
 		}
 
-		public async Task<T> PostFormAsync<T>(string path, MultipartFormDataContent content, TimeSpan? timeout = null)
+		private static async Task EnsureSuccessOrThrowAsync(HttpResponseMessage response)
 		{
-			using var cts = new System.Threading.CancellationTokenSource(timeout ?? Timeout);
-			var response = await _http.PostAsync(BaseUrl + path, content, cts.Token);
-			await EnsureSuccessOrThrowAsync(response);
-			return await response.Content.ReadFromJsonAsync<T>();
-		}
+			if (response.IsSuccessStatusCode)
+				return;
 
-		public HttpClient Raw => _http; // for streaming downloads in RasidApiClient.DownloadFileAsync
-
-		private async Task EnsureSuccessOrThrowAsync(HttpResponseMessage response)
-		{
-			if (response.IsSuccessStatusCode) return;
 			string detail;
 			try
 			{
-				var json = await response.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
-				detail = json.TryGetProperty("detail", out var d) ? d.ToString() : json.ToString();
+				var json = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+				using var document = JsonDocument.Parse(json);
+				detail = document.RootElement.TryGetProperty("detail", out var d) ? d.ToString() : json;
 			}
-			catch { detail = await response.Content.ReadAsStringAsync(); }
-			throw new Exception(detail);
+			catch
+			{
+				detail = response.ReasonPhrase;
+			}
+
+			throw new ApiException(response.StatusCode, detail);
+		}
+	}
+
+	// A response from GoBase-Web that was not a success. StatusCode tells a bad key (401/403) from a server fault.
+	internal class ApiException : Exception
+	{
+		public HttpStatusCode StatusCode { get; }
+
+		public bool IsAuthFailure =>
+			StatusCode == HttpStatusCode.Unauthorized || StatusCode == HttpStatusCode.Forbidden;
+
+		public ApiException(HttpStatusCode statusCode, string detail)
+			: base($"HTTP {(int)statusCode}: {detail}")
+		{
+			StatusCode = statusCode;
 		}
 	}
 }

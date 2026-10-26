@@ -1,24 +1,27 @@
 ﻿using System.Diagnostics;
 using System.Windows.Input;
 using ArcGIS.Desktop.Framework;
-using Rasid.Pages.Base;
-using Rasid.Services;
+using GoBase.Pages.Base;
+using GoBase.Services;
 
-namespace Rasid.Pages.About
+namespace GoBase.Pages.About
 {
 	internal class AboutViewModel : PageViewModelBase
 	{
-		public string VersionText => "RASID SaaS 2.0.0";
-		public string CopyrightText => "© 2026 RASID SaaS. All rights reserved.";
-		public ICommand OpenWebsiteCommand { get; }
-		public ICommand OpenTermsCommand { get; }
+		public string VersionText => "GoBase for ArcGIS Pro 0.1";
+		public string CopyrightText => "© 2026 RASID. All rights reserved.";
+		public string ServerText => $"Connected to {ApiClient.Instance.ServerUrl}";
+		public ICommand OpenPortalCommand { get; }
 
 		public AboutViewModel()
 		{
-			OpenWebsiteCommand = new RelayCommand(() => Open("https://rasid.ai"));
-			OpenTermsCommand = new RelayCommand(() => Open(ApiClient.Instance.AppBaseUrl + "/terms"));
+			OpenPortalCommand = new RelayCommand(() => Open(ApiClient.Instance.ServerUrl));
 		}
 
-		private void Open(string url) => Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+		private static void Open(string url)
+		{
+			if (!string.IsNullOrEmpty(url))
+				Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+		}
 	}
 }

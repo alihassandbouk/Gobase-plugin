@@ -2,58 +2,62 @@ using ArcGIS.Desktop.Core;
 using ArcGIS.Desktop.Core.Geoprocessing;
 using ArcGIS.Desktop.Framework.Threading.Tasks;
 using ArcGIS.Desktop.Mapping;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
-namespace Rasid.Services
+namespace GoBase.Services
 {
+	// One GeoJSON file holding a single geometry type, and the layer it becomes.
+	internal record GeoJsonPart(string Path, string GeometryType, string LayerName);
+
 	internal static class LayerLoader
 	{
-		public static bool LayerExists(string layerName) =>
-			MapView.Active?.Map.GetLayersAsFlattenedList()
-				.Any(layer => layer.Name == layerName) ?? false;
+		private const string RootGroupName = "GoBase";
 
-		public static async Task LoadResultAsync(
-			string filepath,
-			string layerName)
+		// Converts each part into a feature class in the project's default geodatabase and adds it to
+		// the active map, under a "GoBase" group. Several parts of one asset share a sub-group.
+		public static async Task LoadGeoJsonPartsAsync(IReadOnlyList<GeoJsonPart> parts, string assetName)
 		{
-			if (Path.GetExtension(filepath).Equals(
-				".geojson",
-				System.StringComparison.OrdinalIgnoreCase))
-			{
-				filepath = await ConvertGeoJsonAsync(filepath, layerName);
-			}
-
 			var mapView = MapView.Active;
 			if (mapView?.Map == null)
 			{
 				throw new System.InvalidOperationException(
-					"Open a map in ArcGIS Pro before loading this result.");
+					"Open a map in ArcGIS Pro before loading this layer.");
+			}
+
+			var featureClasses = new List<(string Path, string LayerName)>();
+			foreach (var part in parts)
+			{
+				var featureClassPath = await ConvertGeoJsonAsync(part);
+				featureClasses.Add((featureClassPath, part.LayerName));
 			}
 
 			await QueuedTask.Run(() =>
 			{
 				var map = mapView.Map;
-				var group = map.GetLayersAsFlattenedList()
+				var root = map.GetLayersAsFlattenedList()
 					.OfType<GroupLayer>()
-					.FirstOrDefault(layer => layer.Name == "RASID")
-					?? LayerFactory.Instance.CreateGroupLayer(
-						map,
-						0,
-						"RASID");
+					.FirstOrDefault(layer => layer.Name == RootGroupName)
+					?? LayerFactory.Instance.CreateGroupLayer(map, 0, RootGroupName);
 
-				LayerFactory.Instance.CreateLayer(
-					new System.Uri(filepath),
-					group,
-					layerName: layerName);
+				var container = featureClasses.Count > 1
+					? LayerFactory.Instance.CreateGroupLayer(root, 0, assetName)
+					: root;
+
+				foreach (var (path, layerName) in featureClasses)
+				{
+					LayerFactory.Instance.CreateLayer(
+						new System.Uri(path),
+						container,
+						layerName: layerName);
+				}
 			});
 		}
 
-		private static async Task<string> ConvertGeoJsonAsync(
-			string filepath,
-			string layerName)
+		private static async Task<string> ConvertGeoJsonAsync(GeoJsonPart part)
 		{
 			var geodatabasePath = Project.Current?.DefaultGeodatabasePath;
 			if (string.IsNullOrWhiteSpace(geodatabasePath))
@@ -62,21 +66,19 @@ namespace Rasid.Services
 					"The ArcGIS Pro project does not have a default geodatabase.");
 			}
 
-			var safeName = Regex.Replace(
-				layerName ?? "gopilot_result",
-				@"[^A-Za-z0-9_]",
-				"_");
+			// Geodatabase names allow letters, digits and underscores, and cannot start with a digit.
+			var safeName = Regex.Replace(part.LayerName ?? "gobase_layer", @"[^A-Za-z0-9_]", "_");
 			if (string.IsNullOrWhiteSpace(safeName))
-				safeName = "gopilot_result";
+				safeName = "gobase_layer";
 			if (char.IsDigit(safeName[0]))
 				safeName = "_" + safeName;
 
 			var outputPath = Path.Combine(
 				geodatabasePath,
 				$"{safeName}_{System.DateTime.UtcNow:yyyyMMddHHmmssfff}");
-			var parameters = Geoprocessing.MakeValueArray(
-				filepath,
-				outputPath);
+
+			// The third parameter tells JSONToFeatures which geometry type to keep from the GeoJSON.
+			var parameters = Geoprocessing.MakeValueArray(part.Path, outputPath, part.GeometryType);
 			var result = await Geoprocessing.ExecuteToolAsync(
 				"conversion.JSONToFeatures",
 				parameters,
@@ -86,8 +88,9 @@ namespace Rasid.Services
 
 			if (result.IsFailed)
 			{
+				var messages = string.Join("\n", result.ErrorMessages.Select(message => message.Text));
 				throw new System.InvalidOperationException(
-					"ArcGIS Pro could not convert the GeoJSON file to a feature class.");
+					$"ArcGIS Pro could not convert the features ({part.GeometryType}).\n{messages}");
 			}
 
 			return outputPath;

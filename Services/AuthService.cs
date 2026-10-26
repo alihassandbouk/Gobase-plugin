@@ -1,78 +1,48 @@
-using System;
-using Rasid.Models;
+using System.Threading.Tasks;
+using GoBase.Models;
 
-namespace Rasid.Services
+namespace GoBase.Services
 {
     internal sealed class AuthService
     {
-        private const string TargetName = "rasid_addin";
-        private const string CredentialUserName = "api_key";
+        // One Windows credential holds both: the server URL as its user name, the API key as its secret.
+        private const string TargetName = "gobase_addin";
 
         public static AuthService Instance { get; } = new AuthService();
 
+        public string ServerUrl { get; private set; }
         public string ApiKey { get; private set; }
-        public bool HasApiKey => !string.IsNullOrEmpty(ApiKey);
 
         private AuthService()
         {
         }
 
-        public void SetApiKey(string apiKey)
+        public void Use(string serverUrl, string apiKey)
         {
+            ServerUrl = ApiClient.NormalizeServerUrl(serverUrl);
             ApiKey = string.IsNullOrWhiteSpace(apiKey) ? null : apiKey.Trim();
-            ApiClient.Instance.SetAuthHeader(ApiKey);
+            ApiClient.Instance.Configure(ServerUrl, ApiKey);
         }
 
-        public void SaveApiKey(string apiKey = null)
-        {
-            var keyToSave = apiKey ?? ApiKey;
-            if (string.IsNullOrWhiteSpace(keyToSave))
-            {
-                ClearApiKey();
-                return;
-            }
+        public void Save() => WindowsCredentialStore.Save(TargetName, ServerUrl, ApiKey);
 
-            keyToSave = keyToSave.Trim();
-            WindowsCredentialStore.Save(TargetName, CredentialUserName, keyToSave);
-            SetApiKey(keyToSave);
-        }
-
-        public bool LoadApiKey()
+        public bool Load()
         {
-            if (!WindowsCredentialStore.TryRead(TargetName, out var key))
+            if (!WindowsCredentialStore.TryRead(TargetName, out var serverUrl, out var apiKey))
                 return false;
 
-            SetApiKey(key);
-            return true;
+            Use(serverUrl, apiKey);
+            return ServerUrl != null;
         }
 
-        public void ClearApiKey()
+        // Forgets the key but keeps the server URL in memory, so the login form can show it again.
+        public void Clear()
         {
-            SetApiKey(null);
+            Use(ServerUrl, null);
             WindowsCredentialStore.Delete(TargetName);
         }
 
-        public System.Threading.Tasks.Task<UserProfile> GetProfileAsync()
-        {
-            return new RasidApiClient(ApiClient.Instance).GetProfileAsync();
-        }
-
-        public void ClearCredentials()
-        {
-            ClearApiKey();
-        }
-
-        public async System.Threading.Tasks.Task<bool> IsAuthenticatedAsync()
-        {
-            try
-            {
-                await GetProfileAsync();
-                return true;
-            }
-            catch
-            {
-                return false;
-            }
-        }
+        // Throws ApiException with IsAuthFailure when the key is refused, other exceptions when the server is unreachable.
+        public Task<UserIdentity> GetIdentityAsync() => new GoBaseApiClient(ApiClient.Instance).GetMeAsync();
     }
 }

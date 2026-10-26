@@ -3,7 +3,7 @@ using System.Globalization;
 using System.Windows;
 using System.Windows.Data;
 
-namespace Rasid.Converters
+namespace GoBase.Converters
 {
 	//performs the inverse boolean-to-visibility conversion
 	public class InverseBoolToVisibilityConverter : IValueConverter
