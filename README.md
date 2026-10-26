@@ -1,8 +1,8 @@
 # GoBase for ArcGIS Pro
 
 An ArcGIS Pro add-in over the GoBase catalog. It lists the catalog's
-vectors, rasters and documents through the GoBase-Web API, and loads vector
-layers into the active map.
+vectors, rasters and documents through the GoBase-Web API, loads vector
+layers into the active map, and opens documents' PDFs.
 
 Forked from the RASID GoPilot add-in (`upstream` remote). The shell (ribbon
 button, side panel, login, credential storage, layer loading) comes from
@@ -18,7 +18,7 @@ git history for when chat comes back.
 | Vectors: add to map | built: reads `/api/map/assets/{id}/data` for the map view, at most 6 pages of 10,000 features |
 | Zoom to an asset | built |
 | Rasters (COG) | not yet: waits on the backend's `raster-access` endpoint |
-| Documents (PDF) | not yet: `/api/catalog/assets/{id}/pdf` already exists |
+| Documents (PDF) | built: downloads `/api/catalog/assets/{id}/pdf` whole and opens it in the default PDF viewer; offered only when the catalog records a PDF |
 
 ## How it fits together
 
@@ -37,6 +37,7 @@ Services/                            everything that talks to the server or the 
   GoBaseApiClient.cs  one method per GoBase-Web endpoint
   AuthService.cs      server URL + key, kept in Windows Credential Manager
   VectorLoader.cs     pages through /data, splits by geometry type
+  DocumentOpener.cs   downloads a document's PDF, opens it in the default viewer
   LayerLoader.cs      GeoJSON -> feature class (JSONToFeatures) -> map layer
   MapExtent.cs        the map view as a lon/lat box; zoom to a box
 Models/               the JSON shapes the API returns
@@ -75,6 +76,8 @@ installed to compile.
 2. In Pro: open a map, click **GoBase**, enter the server address
    (e.g. `https://portal.example`) and the key.
 3. Catalog → pick a vector → **Zoom to** → **Add to map**.
+4. Catalog → type filter **Documents** → **Open PDF**. The file is saved under
+   `%TEMP%\gobase_downloads\<asset id>\`.
 
 The add-in calls the server over HTTPS. The host must be in the backend's
 `DJANGO_ALLOWED_HOSTS`.

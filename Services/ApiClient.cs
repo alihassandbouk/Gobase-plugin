@@ -1,4 +1,5 @@
 ﻿using System;
+using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -68,6 +69,47 @@ namespace GoBase.Services
 
 			await using var stream = await response.Content.ReadAsStreamAsync(cts.Token).ConfigureAwait(false);
 			return await JsonSerializer.DeserializeAsync<T>(stream, cancellationToken: cts.Token).ConfigureAwait(false);
+		}
+
+		// Saves a file response into destinationFolder, named as the server's Content-Disposition says.
+		// Returns the saved file's path.
+		public async Task<string> DownloadAsync(
+			string pathAndQuery, string destinationFolder, string fallbackFileName, TimeSpan? timeout = null)
+		{
+			if (string.IsNullOrEmpty(ServerUrl))
+				throw new InvalidOperationException("No GoBase server is configured.");
+
+			using var cts = new CancellationTokenSource(timeout ?? Timeout);
+			using var response = await _http.GetAsync(
+				ServerUrl + pathAndQuery, HttpCompletionOption.ResponseHeadersRead, cts.Token).ConfigureAwait(false);
+			await EnsureSuccessOrThrowAsync(response).ConfigureAwait(false);
+
+			var disposition = response.Content.Headers.ContentDisposition;
+			var fileName = SafeFileName(disposition?.FileNameStar ?? disposition?.FileName, fallbackFileName);
+			Directory.CreateDirectory(destinationFolder);
+			var path = Path.Combine(destinationFolder, fileName);
+
+			try
+			{
+				await using var file = File.Create(path);
+				await response.Content.CopyToAsync(file, cts.Token).ConfigureAwait(false);
+			}
+			catch (IOException) when (File.Exists(path))
+			{
+				// Most likely the copy from an earlier click is still open in a viewer, which locks it.
+				// That copy is the same file, so use it.
+			}
+
+			return path;
+		}
+
+		// A bare file name, safe on Windows: no folders, no reserved characters, never empty.
+		private static string SafeFileName(string name, string fallback)
+		{
+			name = Path.GetFileName(name?.Trim().Trim('"') ?? "");
+			foreach (var invalid in Path.GetInvalidFileNameChars())
+				name = name.Replace(invalid, '_');
+			return string.IsNullOrWhiteSpace(name) || name is "." or ".." ? fallback : name;
 		}
 
 		private static async Task EnsureSuccessOrThrowAsync(HttpResponseMessage response)

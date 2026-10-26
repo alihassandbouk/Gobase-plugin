@@ -6,7 +6,9 @@ using GoBase.Services;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Linq;
+using System.Net;
 using System.Threading.Tasks;
 using System.Windows.Input;
 
@@ -182,6 +184,7 @@ namespace GoBase.Pages.Catalog
         {
             TypeLabel(Asset.DataType),
             FormatLabel(Asset.Format),
+            PagesLabel(Asset.Document?.Pages),
             Asset.DatasetLabel ?? Asset.Dataset,
             SizeLabel(Asset.Bytes)
         }.Where(part => !string.IsNullOrEmpty(part)));
@@ -194,9 +197,16 @@ namespace GoBase.Pages.Catalog
             _ => "•"
         };
 
-        // Vectors only, for now. Rasters wait on the backend's raster-access endpoint; documents come next.
-        public bool CanAddToMap => Asset.IsVector;
-        public string ActionText => Asset.IsVector ? "Add to map" : "Coming soon";
+        // Vectors go to the map and documents open as PDFs. Rasters wait on the backend's
+        // raster-access endpoint. A document whose PDF the catalog does not record gets no
+        // working button rather than one that fails.
+        public bool CanAct => Asset.IsVector || Asset.HasPdf;
+        public string ActionText => Asset.DataType switch
+        {
+            "vector" => "Add to map",
+            "document" => Asset.HasPdf ? "Open PDF" : "No PDF",
+            _ => "Coming soon"
+        };
         public bool CanZoom => Asset.Bbox is { Length: 4 };
 
         private string _rowStatus;
@@ -217,17 +227,61 @@ namespace GoBase.Pages.Catalog
             }
         }
 
-        public bool IsActionEnabled => CanAddToMap && !IsWorking;
+        public bool IsActionEnabled => CanAct && !IsWorking;
 
-        public ICommand AddToMapCommand { get; }
+        public ICommand ActionCommand { get; }
         public ICommand ZoomCommand { get; }
 
         public AssetRowViewModel(AssetItem asset, GoBaseApiClient api)
         {
             Asset = asset;
             _api = api;
-            AddToMapCommand = new RelayCommand(async () => await AddToMapAsync());
+            ActionCommand = new RelayCommand(async () => await (Asset.IsDocument ? OpenPdfAsync() : AddToMapAsync()));
             ZoomCommand = new RelayCommand(async () => await ZoomAsync());
+        }
+
+        private async Task OpenPdfAsync()
+        {
+            if (!IsActionEnabled)
+                return;
+
+            IsWorking = true;
+            RowStatus = "Downloading the PDF...";
+            string path;
+            try
+            {
+                path = await DocumentOpener.DownloadPdfAsync(_api, Asset);
+            }
+            catch (ApiException ex) when (ex.IsAuthFailure)
+            {
+                RowStatus = "The server refused the API key.";
+                return;
+            }
+            catch (ApiException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
+            {
+                RowStatus = "The server has no PDF for this document.";
+                return;
+            }
+            catch (Exception ex)
+            {
+                RowStatus = $"Could not download the PDF: {ex.Message}";
+                return;
+            }
+            finally
+            {
+                IsWorking = false;
+            }
+
+            try
+            {
+                DocumentOpener.Open(path);
+                RowStatus = $"Opened {Path.GetFileName(path)}.";
+            }
+            catch (Exception ex)
+            {
+                // Downloaded, but Windows has no app for it: say where the file is.
+                RowStatus = $"Saved to {path}, but it could not be opened: {ex.Message}";
+            }
         }
 
         private async Task AddToMapAsync()
@@ -309,6 +363,13 @@ namespace GoBase.Pages.Catalog
             "pdf" => "PDF",
             null => null,
             _ => format
+        };
+
+        private static string PagesLabel(int? pages) => pages switch
+        {
+            null or <= 0 => null,
+            1 => "1 page",
+            _ => $"{pages} pages"
         };
 
         private static string SizeLabel(long? bytes) => bytes switch

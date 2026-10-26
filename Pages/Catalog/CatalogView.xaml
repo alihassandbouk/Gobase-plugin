@@ -99,7 +99,7 @@
                                                 Padding="10,6"
                                                 Margin="0,0,6,0"/>
                                         <Button Content="{Binding ActionText}"
-                                                Command="{Binding AddToMapCommand}"
+                                                Command="{Binding ActionCommand}"
                                                 IsEnabled="{Binding IsActionEnabled}"
                                                 Style="{StaticResource RasidPrimaryButtonStyle}"
                                                 Padding="12,6"/>

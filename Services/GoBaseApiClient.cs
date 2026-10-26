@@ -11,6 +11,9 @@ namespace GoBase.Services
 		// A feature page can take a while when the server scans a large GeoParquet file.
 		private static readonly TimeSpan FeaturePageTimeout = TimeSpan.FromMinutes(2);
 
+		// PDFs are read whole from the lake before the first byte is sent.
+		private static readonly TimeSpan PdfTimeout = TimeSpan.FromMinutes(2);
+
 		private readonly ApiClient _api;
 		public GoBaseApiClient(ApiClient api) { _api = api; }
 
@@ -44,5 +47,13 @@ namespace GoBase.Services
 				path += "?" + string.Join("&", query);
 			return _api.GetAsync<FeaturePage>(path, FeaturePageTimeout);
 		}
+
+		// The whole PDF behind a document, saved into destinationFolder. Returns the file's path.
+		public Task<string> DownloadDocumentPdfAsync(string assetId, string destinationFolder, string fallbackFileName) =>
+			_api.DownloadAsync(
+				$"/api/catalog/assets/{Uri.EscapeDataString(assetId)}/pdf",
+				destinationFolder,
+				fallbackFileName,
+				PdfTimeout);
 	}
 }
