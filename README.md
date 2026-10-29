@@ -13,7 +13,7 @@ git history for when chat comes back.
 
 | | |
 |---|---|
-| Sign in with server URL + API key | built; needs API keys on the backend (GoBase-Web ADR-020, branch feat/api-keys) |
+| Sign in with server URL + API key | built; needs API keys on the backend (GoBase-Web ADR-021, branch feat/api-keys) |
 | Catalog list: search, type filter, map-view filter, paging | built |
 | Vectors: add to map | built: reads `/api/map/assets/{id}/data` for the map view, at most 6 pages of 10,000 features |
 | Zoom to an asset | built |
