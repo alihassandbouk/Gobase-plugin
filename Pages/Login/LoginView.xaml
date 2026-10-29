@@ -34,7 +34,7 @@
 
         <StackPanel Grid.Column="1" Margin="48,36" VerticalAlignment="Center" MaxWidth="420">
             <TextBlock Text="Connect to GoBase" Style="{StaticResource RasidPageTitleStyle}"/>
-            <TextBlock Text="Enter the server address and your API key."
+            <TextBlock Text="Sign in with your Geo Portal username and password."
                        Margin="0,4,0,20"
                        Foreground="{StaticResource RasidMutedTextBrush}"/>
 
@@ -44,21 +44,30 @@
                      ToolTip="For example https://portal.example"
                      Margin="0,5,0,12"/>
 
-            <TextBlock Text="API Key" Style="{StaticResource RasidSectionTitleStyle}"/>
+            <TextBlock Text="Username" Style="{StaticResource RasidSectionTitleStyle}"/>
+            <TextBox Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}"
+                     Style="{StaticResource RasidTextBoxStyle}"
+                     Margin="0,5,0,12"/>
+
+            <TextBlock Text="Password" Style="{StaticResource RasidSectionTitleStyle}"/>
             <Grid Margin="0,5,0,0">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <PasswordBox x:Name="ApiKeyPasswordBox"
+                <PasswordBox x:Name="PasswordInput"
                              Grid.Column="0"
                              Style="{StaticResource RasidPasswordBoxStyle}"
-                             PasswordChanged="ApiKeyPasswordBox_OnPasswordChanged"
-                             Visibility="{Binding IsKeyVisible, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
+                             PasswordChanged="PasswordInput_OnPasswordChanged"
+                             Visibility="{Binding IsPasswordVisible, Converter={StaticResource InverseBoolToVisibilityConverter}}">
+                    <PasswordBox.InputBindings>
+                        <KeyBinding Key="Enter" Command="{Binding ConnectCommand}"/>
+                    </PasswordBox.InputBindings>
+                </PasswordBox>
                 <TextBox Grid.Column="0"
-                         Text="{Binding ApiKey, UpdateSourceTrigger=PropertyChanged}"
+                         Text="{Binding Password, UpdateSourceTrigger=PropertyChanged}"
                          Style="{StaticResource RasidTextBoxStyle}"
-                         Visibility="{Binding IsKeyVisible, Converter={StaticResource BoolToVis}}"/>
+                         Visibility="{Binding IsPasswordVisible, Converter={StaticResource BoolToVis}}"/>
                 <Button Grid.Column="1"
                         Content="👁"
                         Width="42"
@@ -78,7 +87,7 @@
                        TextWrapping="Wrap"
                        Visibility="{Binding ErrorText, Converter={StaticResource StringToVisibilityConverter}}"/>
 
-            <TextBlock Text="No API key yet? Ask a GoBase admin to create one for you."
+            <TextBlock Text="Your password is not stored: ArcGIS Pro keeps a key for this computer instead."
                        Margin="0,18,0,0"
                        HorizontalAlignment="Center"
                        TextWrapping="Wrap"

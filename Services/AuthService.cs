@@ -44,5 +44,23 @@ namespace GoBase.Services
 
         // Throws ApiException with IsAuthFailure when the key is refused, other exceptions when the server is unreachable.
         public Task<UserIdentity> GetIdentityAsync() => new GoBaseApiClient(ApiClient.Instance).GetMeAsync();
+
+        // Signs in as on the web: the username and password are traded once for an API key
+        // named after this computer, and only the key is kept. Throws ApiException 400 for
+        // a wrong username or password, and 404 when the server has no such endpoint yet.
+        public async Task<UserIdentity> SignInAsync(string serverUrl, string username, string password)
+        {
+            Use(serverUrl, null);
+            var api = new GoBaseApiClient(ApiClient.Instance);
+            var issued = await api.IssueApiKeyAsync(username.Trim(), password, DeviceKeyName);
+
+            Use(ServerUrl, issued.Key);
+            var identity = await api.GetMeAsync();
+            Save();
+            return identity;
+        }
+
+        // What the key is called on the server, so an Admin can tell the computers apart.
+        private static string DeviceKeyName => $"ArcGIS Pro on {System.Environment.MachineName}";
     }
 }

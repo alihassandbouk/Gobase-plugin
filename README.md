@@ -13,7 +13,7 @@ git history for when chat comes back.
 
 | | |
 |---|---|
-| Sign in with server URL + API key | built; needs API keys on the backend (GoBase-Web ADR-021, branch feat/api-keys) |
+| Sign in with server URL, username and password | built: traded once for an API key named after the computer, and only the key is kept; needs GoBase-Web ADR-021 (branch feat/api-keys) |
 | Catalog list: search, type filter, map-view filter, paging | built |
 | Vectors: add to map | built: reads `/api/map/assets/{id}/data` for the map view, at most 6 pages of 10,000 features |
 | Zoom to an asset | built |
@@ -35,7 +35,8 @@ Pages/<Page>/<Page>ViewModel.cs      the page's data and button actions
 Services/                            everything that talks to the server or the map
   ApiClient.cs        HTTP, server URL, the Api-Key header
   GoBaseApiClient.cs  one method per GoBase-Web endpoint
-  AuthService.cs      server URL + key, kept in Windows Credential Manager
+  AuthService.cs      trades username + password for a key; keeps server URL + key
+                      in Windows Credential Manager, never the password
   VectorLoader.cs     pages through /data, splits by geometry type
   DocumentOpener.cs   downloads a document's PDF, opens it in the default viewer
   LayerLoader.cs      GeoJSON -> feature class (JSONToFeatures) -> map layer
@@ -72,9 +73,11 @@ installed to compile.
 
 ## Test against the server
 
-1. On the backend, an admin creates an API key for you in Django admin.
+1. You need a Geo Portal account (the same username and password as the web).
 2. In Pro: open a map, click **GoBase**, enter the server address
-   (e.g. `https://portal.example`) and the key.
+   (e.g. `https://portal.example`), your username and your password. The
+   add-in gets a key called "ArcGIS Pro on <computer name>" and forgets the
+   password. Signing in again from this computer replaces that key.
 3. Catalog → pick a vector → **Zoom to** → **Add to map**.
 4. Catalog → type filter **Documents** → **Open PDF**. The file is saved under
    `%TEMP%\gobase_downloads\<asset id>\`.

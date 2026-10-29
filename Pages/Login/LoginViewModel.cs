@@ -2,11 +2,14 @@ using ArcGIS.Desktop.Framework;
 using GoBase.Pages.Base;
 using GoBase.Services;
 using System;
+using System.Net;
 using System.Net.Http;
 using System.Windows.Input;
 
 namespace GoBase.Pages.Login
 {
+    // Sign in with a username and password, as on the web. The add-in trades them for an
+    // API key once and keeps only the key (AuthService.SignInAsync).
     internal class LoginViewModel : PageViewModelBase
     {
         private string _serverUrl;
@@ -16,18 +19,26 @@ namespace GoBase.Pages.Login
             set => SetProperty(ref _serverUrl, value);
         }
 
-        private string _apiKey;
-        public string ApiKey
+        private string _username;
+        public string Username
         {
-            get => _apiKey;
-            set => SetProperty(ref _apiKey, value);
+            get => _username;
+            set => SetProperty(ref _username, value);
         }
 
-        private bool _isKeyVisible;
-        public bool IsKeyVisible
+        // Held only until the sign-in attempt ends, then cleared.
+        private string _password;
+        public string Password
         {
-            get => _isKeyVisible;
-            set => SetProperty(ref _isKeyVisible, value);
+            get => _password;
+            set => SetProperty(ref _password, value);
+        }
+
+        private bool _isPasswordVisible;
+        public bool IsPasswordVisible
+        {
+            get => _isPasswordVisible;
+            set => SetProperty(ref _isPasswordVisible, value);
         }
 
         private string _errorText;
@@ -49,12 +60,16 @@ namespace GoBase.Pages.Login
 
         public event Action LoggedIn;
 
+        // Raised when the password is cleared, so the view can empty its PasswordBox,
+        // which WPF does not let a binding do.
+        public event Action PasswordCleared;
+
         // errorText lets the panel explain why it came back here, e.g. the server was unreachable at start-up.
         public LoginViewModel(string errorText = null)
         {
             ServerUrl = AuthService.Instance.ServerUrl;
             ErrorText = errorText;
-            ToggleVisibilityCommand = new RelayCommand(() => IsKeyVisible = !IsKeyVisible);
+            ToggleVisibilityCommand = new RelayCommand(() => IsPasswordVisible = !IsPasswordVisible);
             ConnectCommand = new RelayCommand(async () => await ConnectAsync());
         }
 
@@ -69,37 +84,42 @@ namespace GoBase.Pages.Login
                 ErrorText = "Enter the GoBase server address first.";
                 return;
             }
-            if (string.IsNullOrWhiteSpace(ApiKey))
+            if (string.IsNullOrWhiteSpace(Username) || string.IsNullOrEmpty(Password))
             {
-                ErrorText = "Enter your API key first.";
+                ErrorText = "Enter your username and password.";
                 return;
             }
 
             IsConnecting = true;
             try
             {
-                AuthService.Instance.Use(ServerUrl, ApiKey);
-                await AuthService.Instance.GetIdentityAsync();
-                AuthService.Instance.Save();
+                await AuthService.Instance.SignInAsync(ServerUrl, Username, Password);
                 LoggedIn?.Invoke();
             }
-            catch (ApiException ex) when (ex.IsAuthFailure)
+            catch (ApiException ex) when (ex.StatusCode == HttpStatusCode.BadRequest)
             {
-                AuthService.Instance.Use(ServerUrl, null);
-                ErrorText = "The server did not accept this API key.";
+                ErrorText = "Incorrect username or password.";
+            }
+            catch (ApiException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
+            {
+                ErrorText = "This server cannot sign in ArcGIS Pro yet: it needs the GoBase-Web update that adds API keys.";
             }
             catch (HttpRequestException ex)
             {
-                AuthService.Instance.Use(ServerUrl, null);
                 ErrorText = $"Could not reach {AuthService.Instance.ServerUrl}: {ex.Message}";
             }
             catch (Exception ex)
             {
-                AuthService.Instance.Use(ServerUrl, null);
                 ErrorText = $"Could not connect to GoBase: {ex.Message}";
             }
             finally
             {
+                // On failure, make sure no half-configured key is left in use.
+                if (ErrorText != null)
+                    AuthService.Instance.Use(ServerUrl, null);
+
+                Password = null;
+                PasswordCleared?.Invoke();
                 IsConnecting = false;
             }
         }

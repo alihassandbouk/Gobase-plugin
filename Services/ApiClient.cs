@@ -71,6 +71,23 @@ namespace GoBase.Services
 			return await JsonSerializer.DeserializeAsync<T>(stream, cancellationToken: cts.Token).ConfigureAwait(false);
 		}
 
+		public async Task<T> PostJsonAsync<T>(string path, object payload, TimeSpan? timeout = null)
+		{
+			if (string.IsNullOrEmpty(ServerUrl))
+				throw new InvalidOperationException("No GoBase server is configured.");
+
+			using var cts = new CancellationTokenSource(timeout ?? Timeout);
+			// Serialized up front so the request carries a Content-Length. PostAsJsonAsync streams
+			// the body chunked, and a WSGI server such as Django's runserver then reads it as empty.
+			using var content = new StringContent(
+				JsonSerializer.Serialize(payload), System.Text.Encoding.UTF8, "application/json");
+			using var response = await _http.PostAsync(ServerUrl + path, content, cts.Token).ConfigureAwait(false);
+			await EnsureSuccessOrThrowAsync(response).ConfigureAwait(false);
+
+			await using var stream = await response.Content.ReadAsStreamAsync(cts.Token).ConfigureAwait(false);
+			return await JsonSerializer.DeserializeAsync<T>(stream, cancellationToken: cts.Token).ConfigureAwait(false);
+		}
+
 		// Saves a file response into destinationFolder, named as the server's Content-Disposition says.
 		// Returns the saved file's path.
 		public async Task<string> DownloadAsync(

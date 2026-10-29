@@ -20,6 +20,11 @@ namespace GoBase.Services
 		public Task<UserIdentity> GetMeAsync() =>
 			_api.GetAsync<UserIdentity>("/api/auth/me");
 
+		// Trades a username and password for an API key named after this computer.
+		// The server revokes the user's earlier key of the same name, so a computer keeps one.
+		public Task<ApiKeyIssued> IssueApiKeyAsync(string username, string password, string name) =>
+			_api.PostJsonAsync<ApiKeyIssued>("/api/auth/api-keys", new { username, password, name });
+
 		public Task<AssetPage> ListAssetsAsync(
 			string search, IEnumerable<string> dataTypes, GeoBox bbox, int limit, int offset)
 		{
